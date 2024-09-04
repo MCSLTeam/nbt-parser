@@ -28,11 +28,11 @@
   },
   "homepage": "https://github.com/Tigercrl/nbt-parser#readme",
   "devDependencies": {
+    "@types/json-bigint": "^1.0.4",
     "@types/pako": "^2.0.3",
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "@types/json-bigint": "^1.0.4",
     "json-bigint": "^1.0.0",
     "pako": "^2.1.0"
   }
