@@ -3,12 +3,13 @@
     "target": "es2020",
     "module": "commonjs",
     "declaration": true,
+    "rootDir": "./src",
     "outDir": "./dist",
     "strict": true,
     "lib": [
       "decorators",
       "dom",
-      "es2020",
+      "es2021",
       "scripthost"
     ]
   }

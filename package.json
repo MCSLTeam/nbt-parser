@@ -1,13 +1,13 @@
 {
   "name": "nbt-parser",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Minecraft NBT (NamedBinary Tags) parser for Node.js",
   "main": "index.js",
   "scripts": {
     "build": "tsc"
   },
   "files": [
-    "dist/**/*"
+    "dist/**"
   ],
   "repository": {
     "type": "git",
@@ -28,12 +28,17 @@
   },
   "homepage": "https://github.com/Tigercrl/nbt-parser#readme",
   "devDependencies": {
-    "@types/json-bigint": "^1.0.4",
     "@types/pako": "^2.0.3",
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "json-bigint": "^1.0.0",
     "pako": "^2.1.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   }
 }
