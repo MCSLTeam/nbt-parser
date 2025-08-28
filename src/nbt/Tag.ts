@@ -31,8 +31,6 @@ export class Tag {
     validate(name: string) {
         if (name.length > 65535)
             throw new NBTError(`Tag name is longer than 65535 chars: ${name}`);
-        if (this.root && name.length != 0)
-            throw new NBTError(`Root tag name must be empty`);
         if (this.root && this.payload.tagId != TagId.COMPOUND)
             throw new NBTError(`Root tag must be a compound tag`);
     }
