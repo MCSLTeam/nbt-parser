@@ -22,12 +22,7 @@ npm install nbt-parser
 
 ```typescript
 // Import
-import {
-
-...
-}
-from;
-"nbt-parser";
+import { ... } from "nbt-parser";
 
 // Parsing NBT
 const tag: Tag = deserializeJsonToTag({key: "value"});
