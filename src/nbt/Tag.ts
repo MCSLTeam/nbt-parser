@@ -1,4 +1,4 @@
-import {BinaryCompression, Edition, NBTError, SNBTCompression} from "../types";
+import {BinaryCompression, Edition, NBTError, SNBTSerializerOptions} from "../types";
 import {AbstractPayload} from "./Payload";
 import {serializeTagToNBT} from "../serialization/nbt/serializer";
 import {serializeTagToJson} from "../serialization/json/serializer";
@@ -61,7 +61,7 @@ export class Tag {
         else return serializeTagToJson(this);
     }
 
-    toSNBT(compression?: SNBTCompression): string {
+    toSNBT(compression?: Partial<SNBTSerializerOptions>): string {
         if (this.root) return this.payload.toSNBT(compression);
         else return serializeTagToSNBT(this, compression);
     }

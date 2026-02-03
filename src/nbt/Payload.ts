@@ -1,4 +1,4 @@
-import {Edition, NBTError, SNBTCompression} from "../types";
+import {Edition, NBTError, SNBTSerializerOptions} from "../types";
 import {Tag, TagId} from "./Tag";
 import {serializePayloadToNBT} from "../serialization/nbt/serializer";
 import {serializePayloadToJson} from "../serialization/json/serializer";
@@ -40,7 +40,7 @@ export abstract class AbstractPayload<T> {
         return serializePayloadToJson(this);
     }
 
-    toSNBT(compression?: SNBTCompression): string {
+    toSNBT(compression?: Partial<SNBTSerializerOptions>): string {
         return serializePayloadToSNBT(this, compression);
     }
 }
@@ -171,12 +171,14 @@ export class ListPayload extends AbstractPayload<AbstractPayload<any>[]> {
     protected validate(value: AbstractPayload<any>[]) {
         if (value.length >= 2 ** 31)
             throw new NBTError(`List is longer than 65535 items: [${value.map(p => p.toJson()).join()}]`);
-        const firstTag = value[0].tagId;
-        if (value.some(payload => payload.tagId != firstTag))
-            throw new NBTError(`List contains different types, tag ids: [${value.reduce((acc, cur) => {
-                if (!acc.includes(cur.tagId)) acc.push(cur.tagId);
-                return acc;
-            }, [] as number[]).sort().join(", ")}]`);
+        if (value.length > 0) {
+            const firstTag = value[0].tagId;
+            if (value.some(payload => payload.tagId != firstTag))
+                throw new NBTError(`List contains different types, tag ids: [${value.reduce((acc, cur) => {
+                    if (!acc.includes(cur.tagId)) acc.push(cur.tagId);
+                    return acc;
+                }, [] as number[]).sort().join(", ")}]`);
+        }
     }
 
     get tagId(): TagId {

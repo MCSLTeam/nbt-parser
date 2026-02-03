@@ -1,22 +1,42 @@
 import {Tag, TagId} from "../../nbt/Tag";
-import {NBTError, SNBTCompression} from "../../types";
+import {NBTError, SNBTSerializerOptions} from "../../types";
 import {AbstractPayload, CompoundPayload} from "../../nbt/Payload";
 import {escapeString} from "./utils";
 
-export function serializeTagToSNBT(tag: Tag, compression: SNBTCompression = "formatted"): string {
-    if (tag.root) return serializePayloadToSNBT(tag.payload, compression);
-    return serializePayloadToSNBT(new CompoundPayload([tag]), compression);
+const defaultOptions: SNBTSerializerOptions = {
+    format: "pretty",
+    preferUnquotedString: true,
+    quote: "prefer-double",
+    tab: "    ",
+    preferBoolean: false,
+    breakLine: 33,
+};
+
+export function serializeTagToSNBT(tag: Tag, options?: Partial<SNBTSerializerOptions>): string {
+    const fullOptions: SNBTSerializerOptions = {
+        ...defaultOptions,
+        ...options
+    };
+    if (tag.root) return serializePayloadToSNBT(tag.payload, fullOptions);
+    return serializePayloadToSNBT(new CompoundPayload([tag]), fullOptions);
 }
 
-function serializeTagToUnwrappedSNBT(tag: Tag, compression: SNBTCompression) {
-    const space = compression == "compressed" ? "" : " ";
-    const name = canUseUnquotedString(tag.name) ? tag.name : serializeString(tag.name);
-    return `${name}:${space}${serializePayloadToSNBT(tag.payload, compression)}`;
+function serializeTagToUnwrappedSNBT(tag: Tag, options: SNBTSerializerOptions) {
+    const space = options.format == "compressed" ? "" : " ";
+    const name = canUseUnquotedString(tag.name, options) ? tag.name : serializeString(tag.name, options);
+    return `${name}:${space}${serializePayloadToSNBT(tag.payload, options)}`;
 }
 
-export function serializePayloadToSNBT(payload: AbstractPayload<any>, compression: SNBTCompression = "formatted"): string {
+export function serializePayloadToSNBT(payload: AbstractPayload<any>, options?: Partial<SNBTSerializerOptions>): string {
+    const fullOptions: SNBTSerializerOptions = {
+        ...defaultOptions,
+        ...options
+    };
+
     switch (payload.tagId) {
         case TagId.BYTE:
+            if (fullOptions.preferBoolean && payload.value == 0) return "false";
+            if (fullOptions.preferBoolean && payload.value == 1) return "true";
             return `${payload.value}b`;
         case TagId.SHORT:
             return `${payload.value}s`;
@@ -29,60 +49,91 @@ export function serializePayloadToSNBT(payload: AbstractPayload<any>, compressio
         case TagId.DOUBLE:
             return `${payload.value}d`;
         case TagId.BYTE_ARRAY:
-            return serializeListPayloadToSNBT(payload, compression, "B;");
+            return serializeListPayloadToSNBT(payload, fullOptions, "B;");
         case TagId.STRING:
-            return serializeString(payload.value);
+            return serializeString(payload.value, fullOptions);
         case TagId.LIST:
-            return serializeListPayloadToSNBT(payload, compression, "");
+            return serializeListPayloadToSNBT(payload, fullOptions, "");
         case TagId.COMPOUND:
-            return serializeCompoundPayloadToSNBT(payload, compression);
+            return serializeCompoundPayloadToSNBT(payload, fullOptions);
         case TagId.INT_ARRAY:
-            return serializeListPayloadToSNBT(payload, compression, "I;");
+            return serializeListPayloadToSNBT(payload, fullOptions, "I;");
         case TagId.LONG_ARRAY:
-            return serializeListPayloadToSNBT(payload, compression, "L;");
+            return serializeListPayloadToSNBT(payload, fullOptions, "L;");
         default:
             throw new NBTError(`Unknown tag id: ${payload.tagId}`);
     }
 }
 
-function canUseUnquotedString(string: string) {
-    return /^[a-zA-Z_.][a-zA-Z_.\d+-]*$/.test(string);
+function canUseUnquotedString(string: string, options: SNBTSerializerOptions) {
+    return options.preferUnquotedString && /^[a-zA-Z_.][a-zA-Z_.\d+-]*$/.test(string);
 }
 
-function serializeString(string: string) {
-    let quote: "\"" | "'" = "'";
-    if (string.includes("'")) quote = "\"";
+function serializeString(string: string, options: SNBTSerializerOptions) {
+    let quote: "\"" | "'";
+    switch (options.quote) {
+        case "prefer-double":
+            quote = (string.includes("'") && !string.includes("\"")) ? "'" : "\"";
+            break;
+        case "prefer-single":
+            quote = (string.includes("\"") && !string.includes("'")) ? "\"" : "'";
+            break;
+        case "double":
+            quote = "\"";
+            break;
+        case "single":
+            quote = "'";
+            break;
+        default:
+            throw new NBTError(`Unknown quote preference: ${options.quote}`);
+    }
     return `${quote}${escapeString(string, quote)}${quote}`;
 }
 
-function serializeCompoundPayloadToSNBT(payload: AbstractPayload<any>, compression: SNBTCompression): string {
-    switch (compression) {
+function serializeCompoundPayloadToSNBT(payload: AbstractPayload<any>, options: SNBTSerializerOptions): string {
+    switch (options.format) {
         case "multiline": {
-            const formatted = serializeCompoundPayloadToSNBT(payload, "formatted");
-            if (formatted.length < 30) return formatted;
-            return `{\n    ${payload.value.map((tag: Tag) => serializeTagToUnwrappedSNBT(tag, compression)).join(",\n").replaceAll("\n", "\n    ")}\n}`;
+            const pretty = serializeCompoundPayloadToSNBT(payload, {
+                ...options,
+                format: "pretty"
+            });
+            if (pretty.length < options.breakLine) return pretty;
+            return `{\n${options.tab}${
+                payload.value
+                    .map((tag: Tag) => serializeTagToUnwrappedSNBT(tag, options))
+                    .join(",\n")
+                    .replaceAll("\n", `\n${options.tab}`)
+            }\n}`;
         }
-        case "formatted":
-            return `{ ${payload.value.map((tag: Tag) => serializeTagToUnwrappedSNBT(tag, compression)).join(", ")} }`;
+        case "pretty":
+            return `{ ${payload.value.map((tag: Tag) => serializeTagToUnwrappedSNBT(tag, options)).join(", ")} }`;
         case "compressed":
-            return `{${payload.value.map((tag: Tag) => serializeTagToUnwrappedSNBT(tag, compression)).join(",")}}`;
+            return `{${payload.value.map((tag: Tag) => serializeTagToUnwrappedSNBT(tag, options)).join(",")}}`;
         default:
-            throw new NBTError(`Unknown compression: ${compression}`);
+            throw new NBTError(`Unknown compression: ${options.format}`);
     }
 }
 
-function serializeListPayloadToSNBT(payload: AbstractPayload<any>, compression: SNBTCompression, prefix: string): string {
-    switch (compression) {
+function serializeListPayloadToSNBT(payload: AbstractPayload<any>, options: SNBTSerializerOptions, prefix: string): string {
+    switch (options.format) {
         case "multiline": {
-            const formatted = serializeListPayloadToSNBT(payload, "formatted", prefix);
-            if (formatted.length < 30) return formatted;
-            return `[${prefix}\n    ${payload.value.map((p: AbstractPayload<any>) => serializePayloadToSNBT(p, compression)).join(",\n").replaceAll("\n", "\n    ")}\n]`;
+            const pretty = serializeListPayloadToSNBT(payload, {
+                ...options,
+                format: "pretty"
+            }, prefix);
+            if (pretty.length < options.breakLine) return pretty;
+            return `[${prefix}\n${options.tab}${
+                payload.value
+                    .map((p: AbstractPayload<any>) => serializePayloadToSNBT(p, options))
+                    .join(",\n")
+                    .replaceAll("\n", `\n${options.tab}`)
+            }\n]`;
         }
-        case "formatted":
-            return `[${prefix} ${payload.value.map((p: AbstractPayload<any>) => serializePayloadToSNBT(p, compression)).join(", ")} ]`;
+        case "pretty":
+            return `[${prefix} ${payload.value.map((p: AbstractPayload<any>) => serializePayloadToSNBT(p, options)).join(", ")} ]`;
         case "compressed":
-            return `[${prefix}${payload.value.map((p: AbstractPayload<any>) => serializePayloadToSNBT(p, compression)).join(",")}]`;
+            return `[${prefix}${payload.value.map((p: AbstractPayload<any>) => serializePayloadToSNBT(p, options)).join(",")}]`;
         default:
-            throw new NBTError(`Unknown compression: ${compression}`);
+            throw new NBTError(`Unknown compression: ${options.format}`);
     }
 }

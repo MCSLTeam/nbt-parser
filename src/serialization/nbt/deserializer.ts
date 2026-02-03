@@ -42,62 +42,64 @@ function deserializeUnzippedNBTToTag(data: Uint8Array, edition: Edition, root?: 
     return [new Tag(name, payload, root), 1 + 2 + nameLength + payloadLength];
 }
 
-export function deserializeNBTToPayload(data: DataView, id: TagId, edition: Edition): [AbstractPayload<any>, number] {
+export function deserializeNBTToPayload(view: DataView, id: TagId, edition: Edition): [AbstractPayload<any>, number] {
     const littleEndian = isLittleEndian(edition);
+    console.log(new Uint8Array(view.buffer));
     let payload: AbstractPayload<any>;
     let length;
     switch (id) {
         case TagId.BYTE:
-            payload = new BytePayload(data.getInt8(0));
+            payload = new BytePayload(view.getInt8(0));
             length = 1;
             break;
         case TagId.SHORT:
-            payload = new ShortPayload(data.getInt16(0, littleEndian));
+            payload = new ShortPayload(view.getInt16(0, littleEndian));
             length = 2;
             break;
         case TagId.INT:
-            payload = new IntPayload(data.getInt32(0, littleEndian));
+            payload = new IntPayload(view.getInt32(0, littleEndian));
             length = 4;
             break;
         case TagId.LONG:
-            payload = new LongPayload(data.getBigInt64(0, littleEndian));
+            payload = new LongPayload(view.getBigInt64(0, littleEndian));
             length = 8;
             break;
         case TagId.FLOAT:
-            payload = new FloatPayload(data.getFloat32(0, littleEndian));
+            payload = new FloatPayload(view.getFloat32(0, littleEndian));
             length = 4;
             break;
         case TagId.DOUBLE:
-            payload = new DoublePayload(data.getFloat64(0, littleEndian));
+            payload = new DoublePayload(view.getFloat64(0, littleEndian));
             length = 8;
             break;
         case TagId.BYTE_ARRAY: {
-            const len = data.getInt32(0, littleEndian);
+            const len = view.getInt32(0, littleEndian);
             const arr: BytePayload[] = [];
             for (let i = 0; i < len; i++) {
-                arr.push(new BytePayload(data.getInt8(i + 4)));
+                arr.push(new BytePayload(view.getInt8(i + 4)));
             }
             payload = new ByteArrayPayload(arr);
             length = 4 + len;
             break;
         }
         case TagId.STRING: {
-            const len = data.getUint16(0, littleEndian);
+            const len = view.getUint16(0, littleEndian);
             if (littleEndian) {
-                payload = new StringPayload(new TextDecoder().decode(data.buffer.slice(2, 2 + len)));
+                payload = new StringPayload(new TextDecoder().decode(view.buffer.slice(2, 2 + len)));
             } else {
-                payload = new StringPayload(new TextDecoder().decode(new Uint8Array(data.buffer.slice(2, 2 + len))));
+                payload = new StringPayload(new TextDecoder().decode(new Uint8Array(view.buffer.slice(2, 2 + len))));
             }
             length = 2 + len;
             break;
         }
         case TagId.LIST: {
-            const typ = data.getInt8(0);
-            const len = data.getInt32(1, littleEndian);
+            const typ = view.getInt8(0);
+            const len = view.getInt32(1, littleEndian);
             const arr: AbstractPayload<any>[] = [];
             let offset = 0;
             for (let i = 0; i < len; i++) {
-                const [p, len] = deserializeNBTToPayload(new DataView(data.buffer.slice(5 + offset)), typ, edition);
+                const [p, len] = deserializeNBTToPayload(new DataView(view.buffer.slice(5 + offset)), typ, edition);
+                console.log(p);
                 arr.push(p);
                 offset += len;
             }
@@ -109,30 +111,30 @@ export function deserializeNBTToPayload(data: DataView, id: TagId, edition: Edit
             let offset = 0;
             const arr: Tag[] = [];
             while (true) {
-                const [tag, len] = deserializeUnzippedNBTToTag(new Uint8Array(data.buffer.slice(offset)), edition);
+                if (view.getInt8(offset) == TagId.END) break;
+                const [tag, len] = deserializeUnzippedNBTToTag(new Uint8Array(view.buffer.slice(offset)), edition);
                 arr.push(tag);
                 offset += len;
-                if (data.getInt8(offset) == TagId.END) break;
             }
             payload = new CompoundPayload(arr);
             length = offset + 1;
             break;
         }
         case TagId.INT_ARRAY: {
-            const len = data.getInt32(0, littleEndian);
+            const len = view.getInt32(0, littleEndian);
             const arr: IntPayload[] = [];
             for (let i = 0; i < len; i++) {
-                arr.push(new IntPayload(data.getInt8(i + 4)));
+                arr.push(new IntPayload(view.getInt32(i * 4 + 4, littleEndian)));
             }
             payload = new IntArrayPayload(arr);
-            length = 4 + len;
+            length = 4 + len * 4;
             break;
         }
         case TagId.LONG_ARRAY: {
-            const len = data.getInt32(0, littleEndian);
+            const len = view.getInt32(0, littleEndian);
             const arr: LongPayload[] = [];
             for (let i = 0; i < len; i++) {
-                arr.push(new LongPayload(data.getBigInt64(i * 8 + 4, littleEndian)));
+                arr.push(new LongPayload(view.getBigInt64(i * 8 + 4, littleEndian)));
             }
             payload = new LongArrayPayload(arr);
             length = 4 + len * 8;
@@ -141,5 +143,6 @@ export function deserializeNBTToPayload(data: DataView, id: TagId, edition: Edit
         default:
             throw new NBTError(`Unknown tag id: ${id}`);
     }
+    console.log(payload);
     return [payload, length];
 }

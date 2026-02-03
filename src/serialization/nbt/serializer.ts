@@ -92,12 +92,17 @@ export function serializePayloadToNBT(payload: AbstractPayload<any>, edition: Ed
             const len = payload.value.length;
             const arr = new Uint8Array(1 + 4);
             const view = new DataView(arr.buffer);
-            view.setUint8(0, payload.value[0].tagId);
             view.setInt32(1, len, littleEndian);
-            return concatUint8Arrays(
-                arr,
-                ...payload.value.map((p: AbstractPayload<any>) => serializePayloadToNBT(p, edition)),
-            );
+            if (len > 0) {
+                view.setUint8(0, payload.value[0].tagId);
+                return concatUint8Arrays(
+                    arr,
+                    ...payload.value.map((p: AbstractPayload<any>) => serializePayloadToNBT(p, edition)),
+                );
+            } else {
+                view.setUint8(0, TagId.END);
+                return arr;
+            }
         }
         case TagId.COMPOUND:
             return concatUint8Arrays(

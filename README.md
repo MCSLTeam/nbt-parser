@@ -22,7 +22,12 @@ npm install nbt-parser
 
 ```typescript
 // Import
-import { ... } from "nbt-parser";
+import {
+
+...
+}
+from;
+"nbt-parser";
 
 // Parsing NBT
 const tag: Tag = deserializeJsonToTag({key: "value"});
@@ -30,7 +35,6 @@ const tag: Tag = deserializeNBTToTag(new Uint8Array([...]), "java");
 const tag: Tag = deserializeSNBTToTag("{key:value}");
 
 const payload: AbstractPayload<any> = deserializeJsonToPayload("value");
-const payload: AbstractPayload<any> = deserializeNBTToPayload(new Uint8Array([...]), "java");
 const payload: AbstractPayload<any> = deserializeSNBTToPayload("true");
 
 // Creating tags and payloads
@@ -42,13 +46,23 @@ const rootTag = new Tag("", new CompoundPayload([tag]), true); // root tag must 
 const tagName: String = tag.name;
 const payload: AbstractPayload<any> = tag.payload;
 const isRootTag: Boolean = tag.root;
+
+const options: SNBTSerializerOptions = {
+    format: "pretty",
+    preferUnquotedString: true,
+    quote: "prefer-double",
+    tab: "    ",
+    preferBoolean: false,
+    breakLine: 33,
+};
+
 tag.toJSON();
 tag.toNBT("gzip", "java");
-tag.toSNBT("formatted");
+tag.toSNBT(options);
 
 payload.toJSON();
 payload.toNBT("gzip", "java");
-payload.toSNBT("formatted");
+payload.toSNBT(options);
 ```
 
 ## highlight.js
