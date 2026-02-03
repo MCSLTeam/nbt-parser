@@ -71,67 +71,73 @@ export function deserializeNBTToPayload(data: DataView, id: TagId, edition: Edit
             payload = new DoublePayload(data.getFloat64(0, littleEndian));
             length = 8;
             break;
-        case TagId.BYTE_ARRAY:
-            const byteArrayLength = data.getInt32(0, littleEndian);
-            const byteArray: BytePayload[] = [];
-            for (let i = 0; i < byteArrayLength; i++) {
-                byteArray.push(new BytePayload(data.getInt8(i + 4)));
+        case TagId.BYTE_ARRAY: {
+            const len = data.getInt32(0, littleEndian);
+            const arr: BytePayload[] = [];
+            for (let i = 0; i < len; i++) {
+                arr.push(new BytePayload(data.getInt8(i + 4)));
             }
-            payload = new ByteArrayPayload(byteArray);
-            length = 4 + byteArrayLength;
+            payload = new ByteArrayPayload(arr);
+            length = 4 + len;
             break;
-        case TagId.STRING:
-            const stringLength = data.getUint16(0, littleEndian);
+        }
+        case TagId.STRING: {
+            const len = data.getUint16(0, littleEndian);
             if (littleEndian) {
-                payload = new StringPayload(new TextDecoder().decode(data.buffer.slice(2, 2 + stringLength)));
+                payload = new StringPayload(new TextDecoder().decode(data.buffer.slice(2, 2 + len)));
             } else {
-                payload = new StringPayload(new TextDecoder().decode(new Uint8Array(data.buffer.slice(2, 2 + stringLength))));
+                payload = new StringPayload(new TextDecoder().decode(new Uint8Array(data.buffer.slice(2, 2 + len))));
             }
-            length = 2 + stringLength;
+            length = 2 + len;
             break;
-        case TagId.LIST:
-            const listType = data.getInt8(0);
-            const listLength = data.getInt32(1, littleEndian);
-            const list: AbstractPayload<any>[] = [];
-            let listOffset = 0;
-            for (let i = 0; i < listLength; i++) {
-                const [p, len] = deserializeNBTToPayload(new DataView(data.buffer.slice(5 + listOffset)), listType, edition);
-                list.push(p);
-                listOffset += len;
+        }
+        case TagId.LIST: {
+            const typ = data.getInt8(0);
+            const len = data.getInt32(1, littleEndian);
+            const arr: AbstractPayload<any>[] = [];
+            let offset = 0;
+            for (let i = 0; i < len; i++) {
+                const [p, len] = deserializeNBTToPayload(new DataView(data.buffer.slice(5 + offset)), typ, edition);
+                arr.push(p);
+                offset += len;
             }
-            payload = new ListPayload(list);
-            length = 5 + listOffset;
+            payload = new ListPayload(arr);
+            length = 5 + offset;
             break;
-        case TagId.COMPOUND:
-            let compoundOffset = 0;
-            const compound: Tag[] = [];
+        }
+        case TagId.COMPOUND: {
+            let offset = 0;
+            const arr: Tag[] = [];
             while (true) {
-                const [tag, len] = deserializeUnzippedNBTToTag(new Uint8Array(data.buffer.slice(compoundOffset)), edition);
-                compound.push(tag);
-                compoundOffset += len;
-                if (data.getInt8(compoundOffset) == TagId.END) break;
+                const [tag, len] = deserializeUnzippedNBTToTag(new Uint8Array(data.buffer.slice(offset)), edition);
+                arr.push(tag);
+                offset += len;
+                if (data.getInt8(offset) == TagId.END) break;
             }
-            payload = new CompoundPayload(compound);
-            length = compoundOffset + 1;
+            payload = new CompoundPayload(arr);
+            length = offset + 1;
             break;
-        case TagId.INT_ARRAY:
-            const intArrayLength = data.getInt32(0, littleEndian);
-            const intArray: IntPayload[] = [];
-            for (let i = 0; i < intArrayLength; i++) {
-                intArray.push(new IntPayload(data.getInt8(i + 4)));
+        }
+        case TagId.INT_ARRAY: {
+            const len = data.getInt32(0, littleEndian);
+            const arr: IntPayload[] = [];
+            for (let i = 0; i < len; i++) {
+                arr.push(new IntPayload(data.getInt8(i + 4)));
             }
-            payload = new IntArrayPayload(intArray);
-            length = 4 + intArrayLength;
+            payload = new IntArrayPayload(arr);
+            length = 4 + len;
             break;
-        case TagId.LONG_ARRAY:
-            const longArrayLength = data.getInt32(0, littleEndian);
-            const longArray: LongPayload[] = [];
-            for (let i = 0; i < longArrayLength; i++) {
-                longArray.push(new LongPayload(data.getBigInt64(i * 8 + 4, littleEndian)));
+        }
+        case TagId.LONG_ARRAY: {
+            const len = data.getInt32(0, littleEndian);
+            const arr: LongPayload[] = [];
+            for (let i = 0; i < len; i++) {
+                arr.push(new LongPayload(data.getBigInt64(i * 8 + 4, littleEndian)));
             }
-            payload = new LongArrayPayload(longArray);
-            length = 4 + longArrayLength * 8;
+            payload = new LongArrayPayload(arr);
+            length = 4 + len * 8;
             break;
+        }
         default:
             throw new NBTError(`Unknown tag id: ${id}`);
     }

@@ -45,7 +45,7 @@ export function deserializeJsonToPayload(value: any): AbstractPayload<any> {
             return new BytePayload(value ? 1 : 0);
         case "object":
             if (value == null) throw new NBTError(`Invalid value type: ${typeof value} (${value})`);
-            else if (value instanceof Array) {
+            else if (Array.isArray(value)) {
                 const payloads: AbstractPayload<any>[] = [];
                 for (const item of value) {
                     payloads.push(deserializeJsonToPayload(item));

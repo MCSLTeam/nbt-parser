@@ -44,7 +44,7 @@ function deserializePayload(reader: SNBTStringReader): AbstractPayload<any> {
         return parseOperation(reader);
     }
 
-    const bool = /(true|false)(?:[^a-zA-Z_.\d+\-]|$)/.exec(next);
+    const bool = /(true|false)(?:[^a-zA-Z_.\d+-]|$)/.exec(next);
     if (bool?.index == 0) {
         reader.moveTo(reader.index + bool[1].length);
         return new BytePayload(bool[1] == "true" ? 1 : 0);
@@ -92,7 +92,7 @@ function parseByteArray(reader: SNBTStringReader) {
             return new ByteArrayPayload([]);
         }
         const payload = deserializePayload(reader);
-        if (typeof payload.value != "number" || -(2 ** 7) <= payload.value && payload.value <= (2 ** 7) - 1)
+        if (typeof payload.value != "number" || !(-(2 ** 7) <= payload.value && payload.value <= (2 ** 7) - 1))
             throw reader.newSNBTError(`Expected a byte value around index ${reader.index}`);
         payloads.push(new BytePayload(payload.value));
         reader.skipWhitespace();
@@ -112,7 +112,7 @@ function parseIntArray(reader: SNBTStringReader) {
             return new IntArrayPayload([]);
         }
         const payload = deserializePayload(reader);
-        if (typeof payload.value != "number" || -(2 ** 31) <= payload.value && payload.value <= (2 ** 31) - 1)
+        if (typeof payload.value != "number" || !(-(2 ** 31) <= payload.value && payload.value <= (2 ** 31) - 1))
             throw reader.newSNBTError(`Expected an int value around index ${reader.index}`);
         payloads.push(new IntPayload(payload.value));
         reader.skipWhitespace();
@@ -134,7 +134,7 @@ function parseLongArray(reader: SNBTStringReader) {
         const payload = deserializePayload(reader);
         if (
             !(typeof payload.value == "number" || typeof payload.value == "bigint") ||
-            -(2n ** 63n) <= payload.value && payload.value <= (2n ** 63n) - 1n
+            !(-(2n ** 63n) <= payload.value && payload.value <= (2n ** 63n) - 1n)
         )
             throw reader.newSNBTError(`Expected a long value around index ${reader.index}`);
         payloads.push(new LongPayload(BigInt(payload.value)));
@@ -169,17 +169,15 @@ function parseOperation(reader: SNBTStringReader) {
     reader.expectNext(")");
     switch (operation) {
         case "bool":
-            const num = param.value;
-            if (!(typeof num == "number" || typeof num == "bigint"))
+            if (!(typeof param.value == "number" || typeof param.value == "bigint"))
                 throw reader.newSNBTError(`Operation "bool" can only accept number parameters`);
-            return new BytePayload(param.value != 0 ? 1 : 0);
+            return new BytePayload(param.value == 0 ? 0 : 1);
         case "uuid":
-            const str = param.value;
-            if (typeof str != "string")
+            if (typeof param.value != "string")
                 throw reader.newSNBTError(`Operation "uuid" can only accept string parameters`);
-            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(str.toLowerCase()))
-                throw reader.newSNBTError(`Invalid uuid string "${str}"`);
-            return deserializeJsonToPayload(uuidToIntArray(str));
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(param.value.toLowerCase()))
+                throw reader.newSNBTError(`Invalid uuid string "${param.value}"`);
+            return deserializeJsonToPayload(uuidToIntArray(param.value));
         default:
             throw reader.newSNBTError(`Unknown operation "${operation}"`);
     }
@@ -196,16 +194,16 @@ function parseTagName(reader: SNBTStringReader) {
 }
 
 function tryParseQuotedString(reader: SNBTStringReader) {
-    const quotedString = /"((?:\\"|[^"])*)"|'((?:\\'|[^"])*)'/.exec(reader.peekNext());
+    const quotedString = /"((?:\\"|[^"])*)"|'((?:\\'|[^'])*)'/.exec(reader.peekNext());
     if (quotedString?.index == 0) {
         reader.moveTo(reader.index + quotedString[0].length);
-        return new StringPayload(unescapeString(quotedString[1]));
+        return new StringPayload(unescapeString(quotedString[1] ?? quotedString[2]));
     }
     return null;
 }
 
 function tryParseUnquotedString(reader: SNBTStringReader) {
-    const unquotedString = reader.nextUnless(c => /[a-zA-Z_.\d+\-]/.test(c));
+    const unquotedString = reader.nextUnless(c => /[a-zA-Z_.\d+-]/.test(c));
     if (unquotedString.length > 0) {
         return new StringPayload(unescapeString(unquotedString));
     }
@@ -214,7 +212,7 @@ function tryParseUnquotedString(reader: SNBTStringReader) {
 
 function tryParseNumber(reader: SNBTStringReader) {
     const index = reader.index;
-    const probableNumber = reader.nextUnless(c => /[a-zA-Z_.\d+\-]/.test(c));
+    const probableNumber = reader.nextUnless(c => /[a-zA-Z_.\d+-]/.test(c));
     const res = tryParseIntNumber(probableNumber) ?? tryParseFloatNumber(probableNumber);
     if (!res) reader.moveTo(index);
     return res;
@@ -226,8 +224,14 @@ function tryParseIntNumber(string: string) {
     let isSigned = true;
     let type: "byte" | "short" | "int" | "long" = "int";
 
-    const hexRegex = /^\+?0b/.exec(string);
-    const binaryRegex = /^\+?0b/.exec(string);
+    // "0b" will be recognized as something starts with a binary prefix
+    const zeroRegex = /^\+?0b\D/.exec(string);
+    if (zeroRegex?.index == 0) {
+        return new BytePayload(0);
+    }
+
+    const hexRegex = /^\+?0x/.exec(string);
+    const binaryRegex = /^\+?0b]/.exec(string);
     const signRegex = /^[+-]/.exec(string);
     if (hexRegex?.index == 0) {
         mode = "hex";
@@ -303,7 +307,7 @@ function tryParseFloatNumber(string: string) {
                 type = "float";
                 break;
         }
-        string = string.slice(0, string.length - 1);
+        string = string.slice(0, -1);
     }
 
     const fracRegex = /^([+-]?\d[_\d]*(?:\.\d[_\d]*)?)(?:[eE]([+-]?\d[_\d]*))?$/.exec(string);

@@ -1,6 +1,6 @@
 export type Edition = "bedrock" | "java";
 export type BinaryCompression = "gzip" | "zlib" | "none";
-export type SNBTCompression = "compressed" | "formated";
+export type SNBTCompression = "compressed" | "formatted" | "multiline";
 
 export class NBTError extends Error {
     constructor(message: string) {

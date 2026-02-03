@@ -1,6 +1,6 @@
 {
   "name": "nbt-parser",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Minecraft NBT (NamedBinary Tags) parser for Node.js",
   "main": "index.js",
   "scripts": {

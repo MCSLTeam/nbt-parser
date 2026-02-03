@@ -37,82 +37,93 @@ function serializeTagToUnzippedNBT(tag: Tag, edition: Edition): Uint8Array {
 export function serializePayloadToNBT(payload: AbstractPayload<any>, edition: Edition): Uint8Array {
     const littleEndian = isLittleEndian(edition);
     switch (payload.tagId) {
-        case TagId.BYTE:
+        case TagId.BYTE: {
             const byte = new Uint8Array(1);
             new DataView(byte.buffer).setInt8(0, (payload as BytePayload).value);
             return byte;
-        case TagId.SHORT:
+        }
+        case TagId.SHORT: {
             const short = new Uint8Array(2);
             new DataView(short.buffer).setInt16(0, (payload as ShortPayload).value, littleEndian);
             return short;
-        case TagId.INT:
+        }
+        case TagId.INT: {
             const int = new Uint8Array(4);
             new DataView(int.buffer).setInt32(0, (payload as IntPayload).value, littleEndian);
             return int;
-        case TagId.LONG:
+        }
+        case TagId.LONG: {
             const long = new Uint8Array(8);
             new DataView(long.buffer).setBigInt64(0, (payload as LongPayload).value, littleEndian);
             return long;
-        case TagId.FLOAT:
+        }
+        case TagId.FLOAT: {
             const float = new Uint8Array(4);
             new DataView(float.buffer).setFloat32(0, (payload as FloatPayload).value, littleEndian);
             return float;
-        case TagId.DOUBLE:
+        }
+        case TagId.DOUBLE: {
             const double = new Uint8Array(8);
             new DataView(double.buffer).setFloat64(0, (payload as DoublePayload).value, littleEndian);
             return double;
-        case TagId.BYTE_ARRAY:
-            const byteArrayLength = payload.value.length;
-            const byteArray = new Uint8Array(4 + byteArrayLength);
-            const byteArrayView = new DataView(byteArray.buffer);
-            byteArrayView.setInt32(0, byteArrayLength, littleEndian);
-            for (let i = 0; i < byteArrayLength; i++) {
-                byteArrayView.setInt8(4 + i, payload.value[i]);
+        }
+        case TagId.BYTE_ARRAY: {
+            const len = payload.value.length;
+            const arr = new Uint8Array(4 + len);
+            const view = new DataView(arr.buffer);
+            view.setInt32(0, len, littleEndian);
+            for (let i = 0; i < len; i++) {
+                view.setInt8(4 + i, payload.value[i]);
             }
-            return byteArray;
-        case TagId.STRING:
-            const stringBytes = new TextEncoder().encode(payload.value);
-            const stringLength = stringBytes.length;
-            const string = new Uint8Array(2 + stringLength);
-            const stringView = new DataView(string.buffer);
-            stringView.setUint16(0, stringLength, littleEndian);
-            for (let i = 0; i < stringLength; i++) {
-                stringView.setUint8(2 + i, stringBytes[i]);
+            return arr;
+        }
+        case TagId.STRING: {
+            const chars = new TextEncoder().encode(payload.value);
+            const len = chars.length;
+            const arr = new Uint8Array(2 + len);
+            const view = new DataView(arr.buffer);
+            view.setUint16(0, len, littleEndian);
+            for (let i = 0; i < len; i++) {
+                view.setUint8(2 + i, chars[i]);
             }
-            return string;
-        case TagId.LIST:
-            const listLength = payload.value.length;
-            const list = new Uint8Array(1 + 4);
-            const listView = new DataView(list.buffer);
-            listView.setUint8(0, payload.value[0].tagId);
-            listView.setInt32(1, listLength, littleEndian);
+            return arr;
+        }
+        case TagId.LIST: {
+            const len = payload.value.length;
+            const arr = new Uint8Array(1 + 4);
+            const view = new DataView(arr.buffer);
+            view.setUint8(0, payload.value[0].tagId);
+            view.setInt32(1, len, littleEndian);
             return concatUint8Arrays(
-                list,
+                arr,
                 ...payload.value.map((p: AbstractPayload<any>) => serializePayloadToNBT(p, edition)),
             );
+        }
         case TagId.COMPOUND:
             return concatUint8Arrays(
                 ...payload.value.map((tag: Tag) => serializeTagToUnzippedNBT(tag, edition)),
                 new Uint8Array([TagId.END]),
             );
-        case TagId.INT_ARRAY:
-            const intArrayLength = payload.value.length;
-            const intArray = new Uint8Array(4 + intArrayLength * 4);
-            const intArrayView = new DataView(intArray.buffer);
-            intArrayView.setInt32(0, intArrayLength, littleEndian);
-            for (let i = 0; i < intArrayLength; i++) {
-                intArrayView.setInt32(4 + i * 4, payload.value[i]);
+        case TagId.INT_ARRAY: {
+            const len = payload.value.length;
+            const arr = new Uint8Array(4 + len * 4);
+            const view = new DataView(arr.buffer);
+            view.setInt32(0, len, littleEndian);
+            for (let i = 0; i < len; i++) {
+                view.setInt32(4 + i * 4, payload.value[i]);
             }
-            return intArray;
-        case TagId.LONG_ARRAY:
-            const longArrayLength = payload.value.length;
-            const longArray = new Uint8Array(4 + longArrayLength * 8);
-            const longArrayView = new DataView(longArray.buffer);
-            longArrayView.setInt32(0, longArrayLength, littleEndian);
-            for (let i = 0; i < longArrayLength; i++) {
-                longArrayView.setBigInt64(4 + i * 8, payload.value[i]);
+            return arr;
+        }
+        case TagId.LONG_ARRAY: {
+            const len = payload.value.length;
+            const arr = new Uint8Array(4 + len * 8);
+            const view = new DataView(arr.buffer);
+            view.setInt32(0, len, littleEndian);
+            for (let i = 0; i < len; i++) {
+                view.setBigInt64(4 + i * 8, payload.value[i]);
             }
-            return longArray;
+            return arr;
+        }
         default:
             throw new NBTError(`Unknown tag id: ${payload.tagId}`);
     }

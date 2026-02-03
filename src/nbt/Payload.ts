@@ -185,7 +185,7 @@ export class ListPayload extends AbstractPayload<AbstractPayload<any>[]> {
 }
 
 export class CompoundPayload extends AbstractPayload<Tag[]> {
-    // TODO: Compound和List嵌套深度大于512的报错
+    // TODO: throw error when depth > 512
     constructor(value: Tag[]) {
         super(value);
     }
